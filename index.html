@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kakeibo - スマート家計簿</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+        }
+        /* Hide scrollbars for clean look */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-full text-slate-800 antialiased selection:bg-indigo-500 selection:text-white flex flex-col">
+
+    <div id="app" class="min-h-full flex flex-col">
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-900 tracking-tight leading-tight">Kakeibo</h1>
+                        <p class="text-[10px] font-medium text-slate-500">クラウド連携 家計簿</p>
+                    </div>
+                </div>
+
+                <!-- User Auth Area -->
+                <div id="userSection" class="flex items-center gap-3">
+                    <!-- Dynamic rendering by JS -->
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded-lg"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Toast Notification Container -->
+        <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+        <!-- Confirm Modal -->
+        <div id="confirmModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+                <h3 class="text-base font-bold text-slate-900" id="confirmTitle">確認</h3>
+                <p class="text-xs text-slate-600" id="confirmMessage">この明細を削除してもよろしいですか？</p>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="confirmCancelBtn" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">キャンセル</button>
+                    <button id="confirmOkBtn" class="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-md shadow-rose-100">削除する</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+            <!-- Login Prompt (Shown when logged out) -->
+            <div id="loggedOutView" class="hidden py-16 text-center bg-white rounded-3xl border border-slate-200/80 shadow-sm p-8 space-y-6 max-w-xl mx-auto my-8">
+                <div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mx-auto">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <div class="space-y-2">
+                    <h2 class="text-xl font-bold text-slate-900">Google アカウントでログイン</h2>
+                    <p class="text-xs text-slate-500 max-w-sm mx-auto">家計簿データをクラウドに安全に同期します。どの端末からでも最新の収支を確認できます。</p>
+                </div>
+                <button id="loginBtn" class="inline-flex items-center gap-3 px-6 py-3.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-700 text-sm hover:bg-slate-50 hover:border-slate-400 active:scale-98 transition shadow-sm">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Google で続ける</span>
+                </button>
+            </div>
+
+            <!-- Authenticated Dashboard -->
+            <div id="loggedInView" class="hidden space-y-6">
+
+                <!-- Top Month Controller & Summary Cards -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <button id="prevMonthBtn" class="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <h2 id="currentMonthLabel" class="text-lg font-bold text-slate-900 tracking-tight min-w-[120px] text-center">2026年9月</h2>
+                        <button id="nextMonthBtn" class="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="currentMonthResetBtn" class="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition">今月を表示</button>
+                    </div>
+                </div>
+
+                <!-- Summary Cards Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <!-- Income Card -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-slate-500">今月の収入</span>
+                            <span class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path></svg>
+                            </span>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900" id="totalIncomeVal">¥0</div>
+                    </div>
+
+                    <!-- Expense Card -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-slate-500">今月の支出</span>
+                            <span class="p-1.5 bg-rose-50 text-rose-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path></svg>
+                            </span>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900" id="totalExpenseVal">¥0</div>
+                    </div>
+
+                    <!-- Balance Card -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-slate-500">収支差額</span>
+                            <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                        </div>
+                        <div class="text-2xl font-bold text-indigo-600" id="netBalanceVal">¥0</div>
+                    </div>
+                </div>
+
+                <!-- Grid Layout: Add Form + Transaction List -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- Left Column: Add Entry & Category Breakdown -->
+                    <div class="space-y-6">
+
+                        <!-- Add Entry Form Card -->
+                        <div class="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                                <span>新しい明細を記録</span>
+                            </h3>
+
+                            <form id="addTransactionForm" class="space-y-4">
+                                <!-- Type Selector -->
+                                <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+                                    <button type="button" id="typeExpenseBtn" class="py-2 text-xs font-bold rounded-lg transition bg-white text-rose-600 shadow-sm">支出</button>
+                                    <button type="button" id="typeIncomeBtn" class="py-2 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900">収入</button>
+                                </div>
+
+                                <!-- Date Input -->
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-500 mb-1">日付</label>
+                                    <input type="date" id="txDate" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                                </div>
+
+                                <!-- Category Input -->
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-500 mb-1">カテゴリー</label>
+                                    <select id="txCategory" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                                        <!-- Categories populated dynamically -->
+                                    </select>
+                                </div>
+
+                                <!-- Amount Input -->
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-500 mb-1">金額 (円)</label>
+                                    <input type="number" id="txAmount" placeholder="0" min="1" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                                </div>
+
+                                <!-- Memo Input -->
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-500 mb-1">メモ (任意)</label>
+                                    <input type="text" id="txMemo" placeholder="例: スーパーで買い物" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                                </div>
+
+                                <button type="submit" id="saveTxBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-semibold text-xs rounded-xl transition shadow-md shadow-indigo-100 flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                                    <span>保存する</span>
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Category Breakdown Card -->
+                        <div class="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
+                                <span>支出の内訳</span>
+                                <span class="text-[10px] text-slate-400 font-normal">今月</span>
+                            </h3>
+
+                            <div id="categoryBreakdownList" class="space-y-3">
+                                <!-- Category bars generated via JS -->
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column: Transaction List -->
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                    <span>明細一覧</span>
+                                </h3>
+
+                                <!-- Filter Buttons -->
+                                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+                                    <button data-filter="all" class="filter-btn active px-3 py-1 rounded-lg text-xs font-semibold text-indigo-600 bg-white shadow-sm transition">すべて</button>
+                                    <button data-filter="expense" class="filter-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">支出のみ</button>
+                                    <button data-filter="income" class="filter-btn px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">収入のみ</button>
+                                </div>
+                            </div>
+
+                            <!-- List States -->
+                            <div id="loadingState" class="py-12 text-center text-slate-400 space-y-3">
+                                <svg class="w-7 h-7 animate-spin text-indigo-500 mx-auto" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p class="text-xs font-medium">データを読み込み中...</p>
+                            </div>
+
+                            <div id="emptyState" class="hidden py-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 p-6 space-y-2">
+                                <p class="text-slate-600 font-medium text-xs">明細がありません</p>
+                                <p class="text-slate-400 text-[11px]">左のフォームから収支を追加してください</p>
+                            </div>
+
+                            <!-- Transaction items container -->
+                            <div id="transactionList" class="space-y-2"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Firebase Script Execution -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            deleteDoc, 
+            onSnapshot, 
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Provided Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCF1o91OuNfCJJqWSQOL3FSa9Ifb0Eq9uU",
+            authDomain: "kakeibo-b949a.firebaseapp.com",
+            projectId: "kakeibo-b949a",
+            storageBucket: "kakeibo-b949a.firebasestorage.app",
+            messagingSenderId: "134334141686",
+            appId: "1:134334141686:web:7a4036b6b78385e750c8d7",
+            measurementId: "G-RZN5SBVNQV"
+        };
+
+        // Global App State
+        let app, auth, db;
+        let currentUser = null;
+        let transactions = [];
+        let activeType = 'expense'; // 'expense' or 'income'
+        let activeFilter = 'all'; // 'all', 'expense', 'income'
+        let selectedYearMonth = getCurrentYearMonth(); // "YYYY-MM"
+        let pendingDeleteId = null;
+
+        const EXPENSE_CATEGORIES = [
+            '食費', '日用品', '交通費', '趣味・娯楽', '交際費', '光熱費・通信', '住宅・家賃', '医療・健康', '衣服・美容', 'その他支出'
+        ];
+
+        const INCOME_CATEGORIES = [
+            '給与', '賞与', '副業', '臨時収入', 'その他収入'
+        ];
+
+        // DOM Element Cache
+        const userSection = document.getElementById('userSection');
+        const loggedInView = document.getElementById('loggedInView');
+        const loggedOutView = document.getElementById('loggedOutView');
+        const loginBtn = document.getElementById('loginBtn');
+        const addTransactionForm = document.getElementById('addTransactionForm');
+        const typeExpenseBtn = document.getElementById('typeExpenseBtn');
+        const typeIncomeBtn = document.getElementById('typeIncomeBtn');
+        const txDateInput = document.getElementById('txDate');
+        const txCategorySelect = document.getElementById('txCategory');
+        const txAmountInput = document.getElementById('txAmount');
+        const txMemoInput = document.getElementById('txMemo');
+        const transactionListEl = document.getElementById('transactionList');
+        const categoryBreakdownListEl = document.getElementById('categoryBreakdownList');
+        const loadingState = document.getElementById('loadingState');
+        const emptyState = document.getElementById('emptyState');
+        const currentMonthLabel = document.getElementById('currentMonthLabel');
+        const prevMonthBtn = document.getElementById('prevMonthBtn');
+        const nextMonthBtn = document.getElementById('nextMonthBtn');
+        const currentMonthResetBtn = document.getElementById('currentMonthResetBtn');
+        const totalIncomeVal = document.getElementById('totalIncomeVal');
+        const totalExpenseVal = document.getElementById('totalExpenseVal');
+        const netBalanceVal = document.getElementById('netBalanceVal');
+
+        function getCurrentYearMonth() {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            return `${year}-${month}`;
+        }
+
+        function getTodayString() {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatCurrency(num) {
+            return '¥' + Number(num || 0).toLocaleString('ja-JP');
+        }
+
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bgClass = type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white';
+            toast.className = `px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg pointer-events-auto transition-all transform translate-y-2 opacity-0 flex items-center gap-2 ${bgClass}`;
+            toast.innerHTML = `<span>${message}</span>`;
+            toastContainer.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function initFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Auth Listener
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    renderUserSection();
+
+                    if (user) {
+                        loggedOutView.classList.add('hidden');
+                        loggedInView.classList.remove('hidden');
+                        subscribeToTransactions();
+                    } else {
+                        loggedInView.classList.add('hidden');
+                        loggedOutView.classList.remove('hidden');
+                        transactions = [];
+                    }
+                });
+            } catch (err) {
+                console.error("Firebase init failed:", err);
+                showToast("Firebaseの初期化に失敗しました", "error");
+            }
+        }
+
+        function renderUserSection() {
+            userSection.innerHTML = '';
+            if (currentUser) {
+                const photo = currentUser.photoURL || 'https://placehold.co/40x40/6366f1/ffffff?text=U';
+                const name = currentUser.displayName || 'ユーザー';
+
+                userSection.innerHTML = `
+                    <div class="flex items-center gap-2 bg-slate-50 border border-slate-200/80 p-1.5 pl-3 rounded-full">
+                        <span class="text-xs font-semibold text-slate-700 truncate max-w-[100px] sm:max-w-[140px]">${escapeHtml(name)}</span>
+                        <img src="${photo}" alt="Avatar" class="w-7 h-7 rounded-full object-cover">
+                        <button id="logoutBtn" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-full hover:bg-rose-50 transition" title="ログアウト">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V4"></path></svg>
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+                    try {
+                        await signOut(auth);
+                        showToast("ログアウトしました");
+                    } catch (e) {
+                        showToast("ログアウトに失敗しました", "error");
+                    }
+                });
+            } else {
+                userSection.innerHTML = `
+                    <button id="headerLoginBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl transition shadow-sm">
+                        ログイン
+                    </button>
+                `;
+                document.getElementById('headerLoginBtn')?.addEventListener('click', handleGoogleLogin);
+            }
+        }
+
+        async function handleGoogleLogin() {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                showToast("ログインしました");
+            } catch (error) {
+                console.error("Login failed:", error);
+                if (error.code !== 'auth/popup-closed-by-user') {
+                    showToast("ログインに失敗しました: " + error.message, "error");
+                }
+            }
+        }
+
+        loginBtn.addEventListener('click', handleGoogleLogin);
+
+        function subscribeToTransactions() {
+            if (!currentUser) return;
+
+            loadingState.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            const appIdVal = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+            const txRef = collection(db, 'artifacts', appIdVal, 'users', currentUser.uid, 'transactions');
+
+            onSnapshot(txRef, (snapshot) => {
+                loadingState.classList.add('hidden');
+                transactions = [];
+                snapshot.forEach((docSnap) => {
+                    transactions.push({
+                        id: docSnap.id,
+                        ...docSnap.data()
+                    });
+                });
+
+                // Client-side sort by date descending
+                transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                renderDashboard();
+            }, (error) => {
+                console.error("Firestore snapshot error:", error);
+                loadingState.classList.add('hidden');
+                showToast("データの読み込みエラーが発生しました", "error");
+            });
+        }
+
+        function renderDashboard() {
+            // Update Month Label
+            const [y, m] = selectedYearMonth.split('-');
+            currentMonthLabel.textContent = `${y}年${parseInt(m, 10)}月`;
+
+            // Filter transactions for selected month
+            const monthTx = transactions.filter(t => t.date && t.date.startsWith(selectedYearMonth));
+
+            // Calculations
+            let totalInc = 0;
+            let totalExp = 0;
+            const categorySums = {};
+
+            monthTx.forEach(t => {
+                const amt = Number(t.amount) || 0;
+                if (t.type === 'income') {
+                    totalInc += amt;
+                } else {
+                    totalExp += amt;
+                    categorySums[t.category] = (categorySums[t.category] || 0) + amt;
+                }
+            });
+
+            const netBal = totalInc - totalExp;
+
+            totalIncomeVal.textContent = formatCurrency(totalInc);
+            totalExpenseVal.textContent = formatCurrency(totalExp);
+            netBalanceVal.textContent = formatCurrency(netBal);
+
+            if (netBal < 0) {
+                netBalanceVal.className = "text-2xl font-bold text-rose-600";
+            } else {
+                netBalanceVal.className = "text-2xl font-bold text-indigo-600";
+            }
+
+            renderCategoryBreakdown(categorySums, totalExp);
+            renderTransactionList(monthTx);
+        }
+
+        function renderCategoryBreakdown(sums, totalExp) {
+            categoryBreakdownListEl.innerHTML = '';
+            const sortedCategories = Object.entries(sums).sort((a, b) => b[1] - a[1]);
+
+            if (sortedCategories.length === 0) {
+                categoryBreakdownListEl.innerHTML = `
+                    <p class="text-xs text-slate-400 text-center py-4">今月の支出データはありません</p>
+                `;
+                return;
+            }
+
+            sortedCategories.forEach(([cat, amount]) => {
+                const pct = totalExp > 0 ? Math.round((amount / totalExp) * 100) : 0;
+                const row = document.createElement('div');
+                row.className = 'space-y-1';
+                row.innerHTML = `
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-medium text-slate-700">${escapeHtml(cat)}</span>
+                        <span class="font-bold text-slate-900">${formatCurrency(amount)} <span class="text-[10px] font-normal text-slate-400">(${pct}%)</span></span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div class="bg-indigo-500 h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                    </div>
+                `;
+                categoryBreakdownListEl.appendChild(row);
+            });
+        }
+
+        function renderTransactionList(monthTx) {
+            transactionListEl.innerHTML = '';
+
+            const filtered = monthTx.filter(t => {
+                if (activeFilter === 'expense') return t.type === 'expense';
+                if (activeFilter === 'income') return t.type === 'income';
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach(tx => {
+                const isExpense = tx.type === 'expense';
+                const amtColor = isExpense ? 'text-rose-600' : 'text-emerald-600';
+                const sign = isExpense ? '-' : '+';
+
+                const card = document.createElement('div');
+                card.className = "p-3.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/60 flex items-center justify-between gap-3 transition";
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isExpense ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                ${isExpense ? 
+                                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>' : 
+                                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>'
+                                }
+                            </svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-slate-800 truncate">${escapeHtml(tx.category)}</span>
+                                <span class="text-[10px] text-slate-400">${tx.date}</span>
+                            </div>
+                            ${tx.memo ? `<p class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(tx.memo)}</p>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-bold ${amtColor} whitespace-nowrap">
+                            ${sign}${formatCurrency(tx.amount)}
+                        </span>
+                        <button data-id="${tx.id}" class="delete-tx-btn p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="削除">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+
+                transactionListEl.appendChild(card);
+            });
+        }
+
+        function updateCategoryOptions() {
+            txCategorySelect.innerHTML = '';
+            const cats = activeType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+            cats.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                txCategorySelect.appendChild(opt);
+            });
+        }
+
+        typeExpenseBtn.addEventListener('click', () => {
+            activeType = 'expense';
+            typeExpenseBtn.className = "py-2 text-xs font-bold rounded-lg transition bg-white text-rose-600 shadow-sm";
+            typeIncomeBtn.className = "py-2 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900";
+            updateCategoryOptions();
+        });
+
+        typeIncomeBtn.addEventListener('click', () => {
+            activeType = 'income';
+            typeIncomeBtn.className = "py-2 text-xs font-bold rounded-lg transition bg-white text-emerald-600 shadow-sm";
+            typeExpenseBtn.className = "py-2 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900";
+            updateCategoryOptions();
+        });
+
+        addTransactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const date = txDateInput.value;
+            const category = txCategorySelect.value;
+            const amount = Number(txAmountInput.value);
+            const memo = txMemoInput.value.trim();
+
+            if (!date || !category || !amount || amount <= 0) {
+                showToast("正しい金額を入力してください", "error");
+                return;
+            }
+
+            const txId = crypto.randomUUID();
+            const appIdVal = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+            const txDocRef = doc(db, 'artifacts', appIdVal, 'users', currentUser.uid, 'transactions', txId);
+
+            try {
+                await setDoc(txDocRef, {
+                    type: activeType,
+                    date: date,
+                    category: category,
+                    amount: amount,
+                    memo: memo,
+                    createdAt: serverTimestamp()
+                });
+
+                txAmountInput.value = '';
+                txMemoInput.value = '';
+                showToast("記録を追加しました");
+            } catch (err) {
+                console.error("Add transaction error:", err);
+                showToast("保存に失敗しました", "error");
+            }
+        });
+
+        transactionListEl.addEventListener('click', (e) => {
+            const delBtn = e.target.closest('.delete-tx-btn');
+            if (delBtn) {
+                pendingDeleteId = delBtn.dataset.id;
+                document.getElementById('confirmModal').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('confirmCancelBtn').addEventListener('click', () => {
+            pendingDeleteId = null;
+            document.getElementById('confirmModal').classList.add('hidden');
+        });
+
+        document.getElementById('confirmOkBtn').addEventListener('click', async () => {
+            if (!pendingDeleteId || !currentUser) return;
+            const appIdVal = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+            const txDocRef = doc(db, 'artifacts', appIdVal, 'users', currentUser.uid, 'transactions', pendingDeleteId);
+
+            try {
+                await deleteDoc(txDocRef);
+                showToast("明細を削除しました");
+            } catch (err) {
+                console.error("Delete error:", err);
+                showToast("削除に失敗しました", "error");
+            } finally {
+                pendingDeleteId = null;
+                document.getElementById('confirmModal').classList.add('hidden');
+            }
+        });
+
+        prevMonthBtn.addEventListener('click', () => {
+            const [y, m] = selectedYearMonth.split('-').map(Number);
+            const d = new Date(y, m - 2, 1);
+            const ny = d.getFullYear();
+            const nm = String(d.getMonth() + 1).padStart(2, '0');
+            selectedYearMonth = `${ny}-${nm}`;
+            renderDashboard();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            const [y, m] = selectedYearMonth.split('-').map(Number);
+            const d = new Date(y, m, 1);
+            const ny = d.getFullYear();
+            const nm = String(d.getMonth() + 1).padStart(2, '0');
+            selectedYearMonth = `${ny}-${nm}`;
+            renderDashboard();
+        });
+
+        currentMonthResetBtn.addEventListener('click', () => {
+            selectedYearMonth = getCurrentYearMonth();
+            renderDashboard();
+        });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-white', 'shadow-sm', 'text-indigo-600');
+                    b.classList.add('text-slate-600');
+                });
+                const target = e.target;
+                target.classList.add('active', 'bg-white', 'shadow-sm', 'text-indigo-600');
+                target.classList.remove('text-slate-600');
+
+                activeFilter = target.dataset.filter;
+                renderDashboard();
+            });
+        });
+
+        function escapeHtml(str) {
+            return (str || '').replace(/[&<>"']/g, (m) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            })[m]);
+        }
+
+        // Initialize Form & Defaults
+        txDateInput.value = getTodayString();
+        updateCategoryOptions();
+
+        // Start Firebase
+        initFirebase();
+    </script>
+</body>
+</html>
